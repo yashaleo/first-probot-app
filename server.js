@@ -1,5 +1,5 @@
 import { Probot, createNodeMiddleware } from "probot";
-import appFn from "./index.js";
+import myApp from "./index.js";
 import * as dotenv from "dotenv";
 import http from "http";
 
@@ -16,8 +16,7 @@ const probot = new Probot({
   secret: process.env.WEBHOOK_SECRET,
 });
 
-// Load your app
-await probot.load(appFn);
+await probot.load(myApp);
 
 const middleware = createNodeMiddleware(probot);
 const server = http.createServer(middleware);
@@ -26,4 +25,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Probot server listening on http://localhost:${PORT}`);
 });
-// rebuild trigger
