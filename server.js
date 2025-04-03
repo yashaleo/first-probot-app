@@ -1,5 +1,5 @@
 import { Probot, createNodeMiddleware } from "probot";
-import appFn from "./index.js";
+import myApp from "./index.js";
 import * as dotenv from "dotenv";
 import http from "http";
 
@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 3000;
   });
 
   // Load your app into Probot
-  await probot.load(appFn);
+  await probot.load(myApp);
 
   // Use proper middleware handling
   const middleware = createNodeMiddleware(probot);

@@ -2,7 +2,7 @@
  * Entry point for your Probot app
  * @param {import('probot').Probot} app
  */
-export default function appFn(app) {
+export default function myApp(app) {
   // Log when the app is loaded
   app.log.info("✅ GitHub Bot is now running!");
 
