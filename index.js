@@ -11,7 +11,6 @@ export default function myApp(app) {
     app.log.info(`📥 Received event: ${context.name}`);
     app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
   });
-}
 
   // Handle new issue events
   app.on('issues.opened', async (context) => {
@@ -50,4 +49,4 @@ export default function myApp(app) {
       context.log.error('❌ Error assigning reviewers', err);
     }
   });
-};
+}
