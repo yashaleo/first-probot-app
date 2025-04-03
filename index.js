@@ -6,7 +6,7 @@ export default function myApp(app) {
   // Log when the app is loaded
   app.log.info("✅ GitHub Bot is now running!");
 
-  // Log all events to help with debugging
+  // Log all events
   app.onAny(async (context) => {
     app.log.info(`📥 Received event: ${context.name}`);
     app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
@@ -18,9 +18,7 @@ export default function myApp(app) {
       const issueComment = context.issue({
         body: "Thanks for opening this issue! 🛠️",
       });
-
       await context.octokit.issues.createComment(issueComment);
-      app.log.info("✅ Comment created on issue.");
     } catch (err) {
       app.log.error("❌ Failed to comment on issue:", err);
     }
@@ -32,7 +30,9 @@ export default function myApp(app) {
       const config = await context.config("auto_assign.yml");
       let reviewers = (config && config.reviewers) || [];
 
-      reviewers = reviewers.filter((r) => r !== context.payload.sender.login);
+      reviewers = reviewers.filter(
+        (r) => r !== context.payload.sender.login
+      );
 
       if (reviewers.length > 0) {
         const params = context.pullRequest({ reviewers });
@@ -42,7 +42,7 @@ export default function myApp(app) {
         app.log.warn("⚠️ No reviewers found or all were filtered out.");
       }
     } catch (err) {
-      app.log.error("❌ Error assigning reviewers", err);
+      context.log.error("❌ Error assigning reviewers", err);
     }
   });
 }
