@@ -16,6 +16,9 @@ const probot = new Probot({
   secret: process.env.WEBHOOK_SECRET,
 });
 
+console.log("🧪 Type of myApp before load:", typeof myApp);
+console.dir(myApp);
+
 await probot.load(myApp);
 
 const middleware = createNodeMiddleware(probot);
