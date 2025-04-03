@@ -3,28 +3,29 @@ import appFn from "./index.js";
 import * as dotenv from "dotenv";
 import http from "http";
 
-// Load environment variables from .env
+// Load .env
 dotenv.config();
 
-// Check for missing required vars
-const { APP_ID, PRIVATE_KEY, WEBHOOK_SECRET, PORT = 3000 } = process.env;
-
-if (!APP_ID || !PRIVATE_KEY || !WEBHOOK_SECRET) {
-  console.error("❌ Missing required environment variables");
+// Ensure all env vars exist
+if (!process.env.APP_ID || !process.env.PRIVATE_KEY || !process.env.WEBHOOK_SECRET) {
+  console.error("❌ Missing required environment variables.");
   process.exit(1);
 }
 
-// Create the Probot instance
 const probot = new Probot({
-  appId: APP_ID,
-  privateKey: PRIVATE_KEY.replace(/\\n/g, "\n"),
-  secret: WEBHOOK_SECRET,
+  appId: process.env.APP_ID,
+  privateKey: process.env.PRIVATE_KEY.replace(/\\n/g, "\n"),
+  secret: process.env.WEBHOOK_SECRET,
 });
 
-// Load your app logic
-probot.load(appFn);
+// Load your app
+await probot.load(appFn);
 
-// Create and start the HTTP server
-http.createServer(probot.webhooks.middleware).listen(PORT, () => {
-  console.log(`✅ Probot server running at http://localhost:${PORT}`);
+// Create HTTP server that Probot expects
+const server = http.createServer(probot.webhooks.middleware);
+
+// Listen on Heroku's default port
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ Probot server listening on http://localhost:${PORT}`);
 });
