@@ -1,5 +1,5 @@
 import { Probot, createNodeMiddleware } from "probot";
-import myApp from "./index.js";
+import appFn from "./index.js";
 import * as dotenv from "dotenv";
 import http from "http";
 
@@ -17,7 +17,7 @@ const probot = new Probot({
 });
 
 // Load your app
-await probot.load(myApp);
+await probot.load(appFn);
 
 const middleware = createNodeMiddleware(probot);
 const server = http.createServer(middleware);
