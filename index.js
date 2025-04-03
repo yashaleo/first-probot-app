@@ -2,7 +2,7 @@
  * Entry point for your Probot app
  * @param {import('probot').Probot} app
  */
-export default function myApp(app) {
+export default function (app) {
   // Log when the app is loaded
   app.log.info('✅ GitHub Bot is now running!');
 
@@ -29,13 +29,10 @@ export default function myApp(app) {
   // Handle new pull request events
   app.on('pull_request.opened', async (context) => {
     try {
-      // Load reviewer list from .github/auto_assign.yml
       const config = await context.config('auto_assign.yml');
-
-      // Use reviewers from config, fallback to empty array
       let reviewers = (config && config.reviewers) || [];
 
-      // Remove the sender from the reviewer list
+      // Remove sender from reviewer list
       reviewers = reviewers.filter((r) => r !== context.payload.sender.login);
 
       if (reviewers.length > 0) {
