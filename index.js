@@ -6,6 +6,11 @@ export default (app) => {
   // Log when the app is loaded
   app.log.info('✅ GitHub Bot is now running!');
 
+  // Log all events to help with debugging
+  app.onAny(async (context) => {
+    app.log.info(`📥 Received event: ${context.name}`);
+  });
+
   // Handle new issue events
   app.on('issues.opened', async (context) => {
     const issueComment = context.issue({
@@ -21,11 +26,11 @@ export default (app) => {
       // Load reviewer list from .github/auto_assign.yml
       const config = await context.config('auto_assign.yml');
 
-      // Fallback if config or reviewers list is missing
+      // Use reviewers from config, fallback to empty array
       let reviewers = (config && config.reviewers) || [];
 
-      // Remove yourself from the reviewer list
-      reviewers = reviewers.filter((r) => r !== 'context.payload.sender.login');
+      // Remove the sender from the reviewer list
+      reviewers = reviewers.filter((r) => r !== context.payload.sender.login);
 
       if (reviewers.length > 0) {
         const params = context.pullRequest({ reviewers });

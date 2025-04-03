@@ -11,6 +11,8 @@
     "github",
     "probot-app"
   ],
+  "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
@@ -23,7 +25,6 @@
     "smee-client": "^2.0.0"
   },
   "engines": {
-    "node": ">= 18"
-  },
-  "type": "module"
+    "node": ">=18"
+  }
 }
