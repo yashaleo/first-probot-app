@@ -5,14 +5,14 @@
   "description": "A Probot app",
   "author": "yashaleo",
   "license": "ISC",
-  "homepage": "https://github.com//",
+  "homepage": "https://github.com/yashaleo/first-probot-app",
   "keywords": [
     "probot",
     "github",
     "probot-app"
   ],
   "scripts": {
-    "start": "probot run ./index.js",
+    "start": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
