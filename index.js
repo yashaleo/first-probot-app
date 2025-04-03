@@ -9,15 +9,21 @@ export default (app) => {
   // Log all events to help with debugging
   app.onAny(async (context) => {
     app.log.info(`📥 Received event: ${context.name}`);
+    app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
   });
 
   // Handle new issue events
   app.on('issues.opened', async (context) => {
-    const issueComment = context.issue({
-      body: "Thanks for opening this issue! We’ll take a look. 🛠️ (I'm a bot)",
-    });
+    try {
+      const issueComment = context.issue({
+        body: 'Thanks for opening this issue! 🛠️',
+      });
 
-    return context.octokit.issues.createComment(issueComment);
+      await context.octokit.issues.createComment(issueComment);
+      app.log.info('✅ Comment created on issue.');
+    } catch (err) {
+      app.log.error('❌ Failed to comment on issue:', err);
+    }
   });
 
   // Handle new pull request events
