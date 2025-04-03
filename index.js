@@ -2,7 +2,7 @@
  * Entry point for your Probot app
  * @param {import('probot').Probot} app
  */
-export default (app) => {
+export default function myApp(app) {
   // Log when the app is loaded
   app.log.info('✅ GitHub Bot is now running!');
 
@@ -11,6 +11,7 @@ export default (app) => {
     app.log.info(`📥 Received event: ${context.name}`);
     app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
   });
+}
 
   // Handle new issue events
   app.on('issues.opened', async (context) => {
