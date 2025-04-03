@@ -21,8 +21,17 @@ const probot = new Probot({
 // Load your app
 await probot.load(appFn);
 
-// Create HTTP server that Probot expects
-const server = http.createServer(probot.webhooks.middleware);
+// Create HTTP server and wrap webhook middleware in try/catch for better error visibility
+const server = http.createServer((req, res) => {
+  try {
+    console.log("📡 Incoming request:", req.method, req.url);
+    probot.webhooks.middleware(req, res);
+  } catch (err) {
+    console.error("❌ Error handling webhook:", err);
+    res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("Internal Server Error");
+  }
+});
 
 // Listen on Heroku's default port
 const PORT = process.env.PORT || 3000;
