@@ -1,41 +1,18 @@
 /**
- * The core Probot application logic - Simplified diagnostic version
+ * The core Probot application logic
  * @param {import('probot').Probot} app
  */
 module.exports = function (app) {
-  app.log.info('✅ GitHub Bot diagnostic version is now running!');
+  app.log.info('✅ GitHub Bot is now running!');
 
-  // Log ALL events very verbosely
+  // Log all events
   app.onAny(async (context) => {
     try {
-      const eventName = context.name;
-      const action = context.payload.action;
-      const sender = context.payload.sender?.login;
-
-      app.log.info(`📌 EVENT RECEIVED: ${eventName}.${action} from ${sender}`);
-
-      // Log key payload parts based on event type
-      if (eventName === 'pull_request') {
-        app.log.info(
-          `PR #${context.payload.pull_request.number}: ${context.payload.pull_request.title}`
-        );
-      } else if (eventName === 'issues') {
-        app.log.info(
-          `Issue #${context.payload.issue.number}: ${context.payload.issue.title}`
-        );
-      } else if (eventName === 'issue_comment') {
-        app.log.info(
-          `Comment on #${
-            context.payload.issue.number
-          }: "${context.payload.comment.body.substring(0, 30)}..."`
-        );
-      } else if (eventName.includes('review')) {
-        app.log.info(
-          `REVIEW EVENT: PR #${context.payload.pull_request?.number}, type: ${context.payload.review?.state}`
-        );
-      }
+      app.log.info(`📥 Received event: ${context.name}`);
     } catch (error) {
-      app.log.error(`Error logging event: ${error.message}`);
+      app.log.info(
+        `📥 Received event: ${context.name} (error logging payload)`
+      );
     }
   });
 
@@ -52,71 +29,132 @@ module.exports = function (app) {
     }
   });
 
-  // Respond to comments with /test command
-  app.on('issue_comment.created', async (context) => {
+  // Auto-assign reviewers to PRs
+  app.on('pull_request.opened', async (context) => {
     try {
-      // Check if this is a PR comment
-      const isPR = Boolean(context.payload.issue.pull_request);
-      const commentBody = context.payload.comment.body.trim();
+      // Get config from .github/auto_assign.yml
+      const config = await context.config('auto_assign.yml');
 
-      app.log.info(
-        `Comment received: "${commentBody}" on ${isPR ? 'PR' : 'issue'} #${
-          context.payload.issue.number
-        }`
+      if (!config) {
+        app.log.warn('No auto_assign.yml config found.');
+
+        // Still comment on the PR even without config
+        await context.octokit.issues.createComment(
+          context.issue({
+            body: `👋 Thanks for opening this pull request! I couldn't find any reviewer configuration, but we'll review this soon.`,
+          })
+        );
+        return;
+      }
+
+      let reviewers = (config && config.reviewers) || [];
+
+      // Don't assign the PR creator as a reviewer
+      reviewers = reviewers.filter((r) => r !== context.payload.sender.login);
+
+      // First, add a comment about the PR
+      await context.octokit.issues.createComment(
+        context.issue({
+          body: `👋 Thanks for opening this pull request! I'll try to find reviewers for it.`,
+        })
       );
 
-      // Only respond to /test command
-      if (commentBody === '/test') {
-        app.log.info('Test command detected!');
+      // Then try to assign reviewers (may fail, but that's okay)
+      if (reviewers.length > 0) {
+        try {
+          await context.octokit.pulls.requestReviewers(
+            context.pullRequest({ reviewers })
+          );
+          app.log.info(`✅ Assigned reviewers: ${reviewers.join(', ')}`);
+
+          // Add a success comment
+          await context.octokit.issues.createComment(
+            context.issue({
+              body: `I've assigned the following reviewers: ${reviewers
+                .map((r) => `@${r}`)
+                .join(', ')}`,
+            })
+          );
+        } catch (reviewerError) {
+          app.log.warn(
+            `⚠️ Could not assign reviewers: ${reviewerError.message}`
+          );
+
+          // No need to add another comment about the failure
+        }
+      } else {
+        app.log.warn('⚠️ No eligible reviewers found.');
+      }
+    } catch (error) {
+      app.log.error(`Error in pull_request.opened handler: ${error.message}`);
+    }
+  });
+
+  // Handle PR comments with "/approve" command
+  app.on('issue_comment.created', async (context) => {
+    try {
+      // Check if this is a PR comment (issues and PRs share the same comment API)
+      const isPR = Boolean(context.payload.issue.pull_request);
+      if (!isPR) {
+        return;
+      }
+
+      const comment = context.payload.comment.body.trim();
+
+      // Check for approval command
+      if (comment.toLowerCase() === '/approve') {
+        app.log.info(
+          `Approval command detected from ${context.payload.comment.user.login}`
+        );
 
         const repo = context.repo();
         const issueNumber = context.payload.issue.number;
 
-        // Reply to the test command
-        await context.octokit.issues.createComment({
-          ...repo,
-          issue_number: issueNumber,
-          body: `Test command received from @${context.payload.comment.user.login}! 👍`,
-        });
-
-        app.log.info('Replied to test command');
-
-        // Try to add a test label
+        // Create and add the approved label
         try {
-          // Create a test label if it doesn't exist
+          // Try to create the label first (will fail if it exists, which is fine)
           try {
             await context.octokit.issues.createLabel({
               ...repo,
-              name: 'test-label',
-              color: 'ff00ff',
-              description: 'Test label from bot',
+              name: 'approved',
+              color: '0e8a16', // Green color
+              description: 'Pull request has been approved',
             });
+            app.log.info('Created approved label');
           } catch (labelError) {
-            app.log.info(`Note about label creation: ${labelError.message}`);
+            app.log.info(
+              `Note: ${labelError.message} (This is normal if label exists)`
+            );
           }
 
-          // Add the label
+          // Add the label to the PR
           await context.octokit.issues.addLabels({
             ...repo,
             issue_number: issueNumber,
-            labels: ['test-label'],
+            labels: ['approved'],
           });
 
-          app.log.info('Added test-label to PR/issue');
+          app.log.info(`✅ Added 'approved' label to PR #${issueNumber}`);
+
+          // Add a comment confirming the approval
+          await context.octokit.issues.createComment({
+            ...repo,
+            issue_number: issueNumber,
+            body: `This pull request has been approved by @${context.payload.comment.user.login} and labeled as 'approved'. 👍`,
+          });
         } catch (error) {
-          app.log.error(`Failed to add test label: ${error.message}`);
+          app.log.error(`Error adding label: ${error.message}`);
+
+          // Add a comment about the error
+          await context.octokit.issues.createComment({
+            ...repo,
+            issue_number: issueNumber,
+            body: `@${context.payload.comment.user.login} tried to approve this PR, but I couldn't add the 'approved' label: ${error.message}`,
+          });
         }
       }
     } catch (error) {
       app.log.error(`Error handling comment: ${error.message}`);
     }
-  });
-
-  // Track pull_request_review events specifically
-  app.on('pull_request_review', async (context) => {
-    app.log.info('🎯 PULL REQUEST REVIEW EVENT RECEIVED!');
-    app.log.info(`Review state: ${context.payload.review.state}`);
-    app.log.info(`Action: ${context.payload.action}`);
-    app.log.info(`Reviewer: ${context.payload.review.user.login}`);
   });
 };
