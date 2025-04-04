@@ -27,6 +27,7 @@ const probot = new Probot({
 
 console.log('🧪 Type of myApp before load:', typeof myApp);
 console.dir(myApp);
+console.log('🧪 Function string:', myApp.toString());
 
 // Load your app
 await probot.load(myApp);
