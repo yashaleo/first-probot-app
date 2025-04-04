@@ -2,41 +2,50 @@ const { Probot } = require('probot');
 const http = require('http');
 require('dotenv').config();
 
-// Create Probot instance
-const probot = new Probot({
-  appId: process.env.APP_ID,
-  privateKey: (process.env.PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-  secret: process.env.WEBHOOK_SECRET,
-});
+// Explicitly load the app handler function
+const probotApp = require('./index.js');
 
-// Load the app
-const app = require('./index.js');
-probot.load(app);
+// Function to start the server
+async function startServer() {
+  try {
+    // Create Probot instance
+    const probot = new Probot({
+      appId: process.env.APP_ID,
+      privateKey: (process.env.PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      secret: process.env.WEBHOOK_SECRET,
+    });
 
-// Create server
-const { createNodeMiddleware } = require('probot');
-const middleware = createNodeMiddleware(probot);
-const server = http.createServer(middleware);
+    // Load the app explicitly by calling probot.load with our function
+    probot.load(probotApp);
 
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`✅ Probot server is running on port ${PORT}`);
-});
+    // Verify app was loaded
+    console.log(`✅ App loaded successfully: ${typeof probotApp}`);
 
-// Handle server errors
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  process.exit(1);
-});
+    // Create the middleware (AFTER loading the app)
+    const { createNodeMiddleware } = require('probot');
+    const middleware = createNodeMiddleware(probot);
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
-  process.exit(1);
-});
+    // Create server
+    const server = http.createServer(middleware);
 
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled promise rejection:', err);
+    // Start server
+    const PORT = process.env.PORT || 3000;
+    server.listen(PORT, () => {
+      console.log(`✅ Probot server is running on port ${PORT}`);
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error('Server error:', err);
+    });
+  } catch (error) {
+    console.error('Startup error:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error('Fatal error:', error);
   process.exit(1);
 });

@@ -1,7 +1,5 @@
-/**
- * The core Probot application logic
- */
-module.exports = (app) => {
+// Define the app function as a named function
+function probotApp(app) {
   app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
@@ -45,4 +43,7 @@ module.exports = (app) => {
       app.log.error(`Error assigning reviewers: ${error.message}`);
     }
   });
-};
+}
+
+// Export the named function
+module.exports = probotApp;
