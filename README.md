@@ -4,8 +4,8 @@
 
 ## ✨ Features
 
-- 💬 Automatically comments on newly opened issues  
-- 👥 Auto-assigns reviewers for new pull requests using `.github/auto_assign.yml`  
+- 💬 Automatically comments on newly opened issues
+- 👥 Auto-assigns reviewers for new pull requests using `.github/auto_assign.yml`
 - ⚙️ Built with manual HTTP webhook handling (no Express or middleware)
 
 ## 🚀 Setup
