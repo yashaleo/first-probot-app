@@ -1,8 +1,8 @@
-import { Probot } from 'probot';
-import dotenv from 'dotenv';
-import http from 'http';
-import { createNodeMiddleware } from 'probot';
-import { probotApp } from './index.js';
+const { Probot } = require('probot');
+const { createNodeMiddleware } = require('probot');
+const dotenv = require('dotenv');
+const http = require('http');
+const probotApp = require('./index.js');
 
 // Load environment variables
 dotenv.config();
@@ -27,8 +27,8 @@ async function startServer() {
       secret: process.env.WEBHOOK_SECRET,
     });
 
-    // Important: The correct way to apply the app with ESM modules
-    probot.load((app) => probotApp(app));
+    // Load the app
+    probot.load(probotApp);
     console.log('✅ App loaded successfully');
 
     // Create probot middleware
@@ -79,7 +79,7 @@ async function startServer() {
       process.env.WEBHOOK_PROXY_URL
     ) {
       try {
-        const { SmeeClient } = await import('smee-client');
+        const SmeeClient = require('smee-client').SmeeClient;
         const smee = new SmeeClient({
           source: process.env.WEBHOOK_PROXY_URL,
           target: `http://localhost:${PORT}/`,

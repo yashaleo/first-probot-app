@@ -2,7 +2,7 @@
  * This is the main entry point for your Probot app
  * @param {import('probot').Probot} app
  */
-export function probotApp(app) {
+function probotApp(app) {
   app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
@@ -43,5 +43,5 @@ export function probotApp(app) {
   });
 }
 
-// This is required for ES modules compatibility with Probot
-export default probotApp;
+// Export for CommonJS
+module.exports = probotApp;
