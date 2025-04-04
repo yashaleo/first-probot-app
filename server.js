@@ -1,13 +1,14 @@
 import { Probot, createNodeMiddleware } from 'probot';
 import { myApp } from './index.js';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import http from 'http';
-import { URL } from 'url';
-import { SmeeClient } from 'smee-client';
+import pkg from 'smee-client';
+
+const { SmeeClient } = pkg;
 
 dotenv.config();
 
-// Check required env vars
+// Validate required environment variables
 if (
   !process.env.APP_ID ||
   !process.env.PRIVATE_KEY ||
@@ -17,7 +18,7 @@ if (
   process.exit(1);
 }
 
-// Start the Probot app
+// Create a Probot instance
 const probot = new Probot({
   appId: process.env.APP_ID,
   privateKey: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -27,33 +28,23 @@ const probot = new Probot({
 console.log('🧪 Type of myApp before load:', typeof myApp);
 console.dir(myApp);
 
+// Load your app
 await probot.load(myApp);
 
-// Setup the Smee client if in development and proxy is defined
+// Optionally connect Smee (for local dev or webhook proxying)
 if (process.env.WEBHOOK_PROXY_URL) {
   const smee = new SmeeClient({
     source: process.env.WEBHOOK_PROXY_URL,
-    target: 'http://localhost:3000/',
+    target: 'http://localhost:' + (process.env.PORT || 3000) + '/',
     logger: console,
   });
 
   smee.start();
 }
 
-// This handles GitHub webhook requests
+// Start HTTP server
 const middleware = createNodeMiddleware(probot);
-
-// Create HTTP server
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host}`);
-
-  if (url.pathname === '/') {
-    return middleware(req, res);
-  }
-
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not Found');
-});
+const server = http.createServer(middleware);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
