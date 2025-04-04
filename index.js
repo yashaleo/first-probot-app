@@ -1,7 +1,7 @@
 /**
  * @type {import('probot').ProbotPlugin}
  */
-export const myApp = (app) => {
+export default function myApp(app) {
   app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
@@ -35,4 +35,4 @@ export const myApp = (app) => {
       app.log.warn('⚠️ No eligible reviewers found.');
     }
   });
-};
+}

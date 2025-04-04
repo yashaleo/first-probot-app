@@ -1,5 +1,5 @@
 import { Probot, createNodeMiddleware } from 'probot';
-import { myApp } from './index.js';
+import myApp from './index.js'; // ✅ default import
 import dotenv from 'dotenv';
 import http from 'http';
 import pkg from 'smee-client';
@@ -27,19 +27,17 @@ const probot = new Probot({
 
 console.log('🧪 Type of myApp before load:', typeof myApp);
 console.dir(myApp);
-console.log('🧪 Function string:', myApp.toString());
 
-// Load your app
+// Load the Probot app
 await probot.load(myApp);
 
-// Optionally connect Smee (for local dev or webhook proxying)
+// Optionally connect Smee (for webhook proxying)
 if (process.env.WEBHOOK_PROXY_URL) {
   const smee = new SmeeClient({
     source: process.env.WEBHOOK_PROXY_URL,
-    target: 'http://localhost:' + (process.env.PORT || 3000) + '/',
+    target: `http://localhost:${process.env.PORT || 3000}/`,
     logger: console,
   });
-
   smee.start();
 }
 
