@@ -1,12 +1,13 @@
-import { Probot } from 'probot';
+import { Probot, createNodeMiddleware } from 'probot';
 import { myApp } from './index.js';
 import * as dotenv from 'dotenv';
 import http from 'http';
-import handler from 'smee-client'; // ✅ Needed for Smee proxy webhook forwarding
+import { URL } from 'url';
+import { SmeeClient } from 'smee-client';
 
 dotenv.config();
 
-// Validate required environment variables
+// Check required env vars
 if (
   !process.env.APP_ID ||
   !process.env.PRIVATE_KEY ||
@@ -16,6 +17,7 @@ if (
   process.exit(1);
 }
 
+// Start the Probot app
 const probot = new Probot({
   appId: process.env.APP_ID,
   privateKey: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -25,24 +27,35 @@ const probot = new Probot({
 console.log('🧪 Type of myApp before load:', typeof myApp);
 console.dir(myApp);
 
-// Load your app
 await probot.load(myApp);
 
-const PORT = process.env.PORT || 3000;
-
-// 🧪 Smee webhook proxy setup for dev/Heroku
+// Setup the Smee client if in development and proxy is defined
 if (process.env.WEBHOOK_PROXY_URL) {
-  const smee = new handler({
+  const smee = new SmeeClient({
     source: process.env.WEBHOOK_PROXY_URL,
-    target: `http://localhost:${PORT}/`,
+    target: 'http://localhost:3000/',
     logger: console,
   });
+
   smee.start();
 }
 
-// For Probot v13: You can forward requests to probot using built-in middleware
-const server = http.createServer(probot.webhooks.middleware);
+// This handles GitHub webhook requests
+const middleware = createNodeMiddleware(probot);
 
+// Create HTTP server
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url || '/', `http://${req.headers.host}`);
+
+  if (url.pathname === '/') {
+    return middleware(req, res);
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not Found');
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Probot server listening on http://localhost:${PORT}`);
 });
