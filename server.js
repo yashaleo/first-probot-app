@@ -1,5 +1,6 @@
 const { Probot } = require('probot');
 const http = require('http');
+const crypto = require('crypto');
 require('dotenv').config();
 
 // Explicitly load the app handler function
@@ -18,9 +19,6 @@ async function startServer() {
     });
 
     console.log(`App function type: ${typeof probotApp}`);
-    console.log(
-      `App function content: ${probotApp.toString().slice(0, 100)}...`
-    );
 
     try {
       // Load the app explicitly
@@ -31,7 +29,7 @@ async function startServer() {
       throw loadError;
     }
 
-    // Instead of using the middleware, let's create a manual request handler
+    // Create a server that manually processes GitHub webhooks
     const server = http.createServer(async (req, res) => {
       console.log(`📥 Incoming request: ${req.method} ${req.url}`);
 
@@ -44,23 +42,84 @@ async function startServer() {
 
         req.on('end', async () => {
           try {
-            const body = Buffer.concat(buffers).toString();
+            const payload = Buffer.concat(buffers);
+            const body = payload.toString();
             console.log(`Request body length: ${body.length} characters`);
 
-            // For webhook verification
+            // Verify webhook signature
+            const signature =
+              req.headers['x-hub-signature-256'] ||
+              req.headers['x-hub-signature'];
+            const event = req.headers['x-github-event'];
+            const id = req.headers['x-github-delivery'];
+
+            if (!signature || !event || !id) {
+              console.log('Missing required GitHub headers');
+              res.statusCode = 400;
+              res.end('Missing required GitHub headers');
+              return;
+            }
+
+            // Verify the webhook signature if secret is available
+            if (process.env.WEBHOOK_SECRET) {
+              const sigHashAlg = signature.includes('sha256=')
+                ? 'sha256'
+                : 'sha1';
+              const sigValuePos = signature.includes('sha256=') ? 7 : 5;
+              const hmac = crypto.createHmac(
+                sigHashAlg,
+                process.env.WEBHOOK_SECRET
+              );
+              hmac.update(payload);
+              const digest = `${sigHashAlg}=${hmac.digest('hex')}`;
+
+              if (
+                !crypto.timingSafeEqual(
+                  Buffer.from(signature),
+                  Buffer.from(digest)
+                )
+              ) {
+                console.log('Invalid signature');
+                res.statusCode = 401;
+                res.end('Invalid signature');
+                return;
+              }
+            }
+
+            console.log(`Processing GitHub event: ${event}`);
+
+            // Send a 200 response immediately to acknowledge receipt
             res.statusCode = 200;
             res.end('Webhook received');
 
-            // We don't process the webhook here since we're just trying to get the server running
-            console.log('Webhook acknowledged');
+            // Now process the webhook event
+            try {
+              // Create webhook context
+              const context = {
+                id,
+                name: event,
+                payload: JSON.parse(body),
+              };
+
+              // Emit the event to our Probot app
+              await probot.receive(context);
+              console.log(`✅ Event ${event} processed successfully`);
+            } catch (processingError) {
+              console.error(
+                `Error processing event ${event}:`,
+                processingError
+              );
+            }
           } catch (webhookError) {
-            console.error('Error processing webhook:', webhookError);
+            console.error('Error handling webhook:', webhookError);
             res.statusCode = 500;
             res.end('Error processing webhook');
           }
         });
       } else {
+        // For non-POST requests, just return a simple response
         res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
         res.end('Probot server is running');
       }
     });
@@ -77,7 +136,6 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Startup error:', error);
-    // Keep the process running even with an error
     console.log(
       'Server initialization failed, but keeping process alive for debugging'
     );
@@ -87,19 +145,16 @@ async function startServer() {
 // Start the server with better error handling
 startServer().catch((error) => {
   console.error('Fatal error:', error);
-  // Keep the process running for debugging
   console.log(
     'Server initialization failed, but keeping process alive for debugging'
   );
 });
 
-// Keep the process running
+// Handle uncaught errors to prevent crashes
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
-  // Don't exit the process
 });
 
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled promise rejection:', err);
-  // Don't exit the process
 });
