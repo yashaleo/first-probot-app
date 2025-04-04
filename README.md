@@ -1,33 +1,55 @@
 # first-probot-app
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) that A Probot app
+> A GitHub App built with [Probot v13](https://github.com/probot/probot) to automate issue comments and pull request reviewer assignments.
 
-## Setup
+## ✨ Features
 
-```sh
-# Install dependencies
+- 💬 Automatically comments on newly opened issues  
+- 👥 Auto-assigns reviewers for new pull requests using `.github/auto_assign.yml`  
+- ⚙️ Built with manual HTTP webhook handling (no Express or middleware)
+
+## 🚀 Setup
+
+### 1. Install dependencies
+
+```bash
 npm install
+```
 
-# Run the bot
+### 2. Set up environment variables
+
+Create a `.env` file with the following keys:
+
+```
+APP_ID=your-app-id
+PRIVATE_KEY=your-private-key
+WEBHOOK_SECRET=your-webhook-secret
+```
+
+### 3. Run the bot locally
+
+```bash
 npm start
 ```
 
-## Docker
+## 🌍 Deployment
 
-```sh
-# 1. Build container
-docker build -t first-probot-app .
+This app is optimized for [Heroku](https://heroku.com), but it will run anywhere Node.js is supported. It handles GitHub webhooks manually for better control and visibility.
 
-# 2. Start container
-docker run -e APP_ID=<app-id> -e PRIVATE_KEY=<pem-value> first-probot-app
+## ⚙️ Configuration
+
+To enable auto-assignment of reviewers on pull requests, add a file named `.github/auto_assign.yml` to your repo:
+
+```yaml
+reviewers:
+  - your-github-username
+  - another-collaborator
 ```
 
-## Contributing
+## 🤝 Contributing
 
-If you have suggestions for how first-probot-app could be improved, or want to report a bug, open an issue! We'd love all and any contributions.
+Found a bug or have an idea to improve the app? Open an issue or submit a pull request. Contributions are always welcome!
 
-For more, check out the [Contributing Guide](CONTRIBUTING.md).
+## 📄 License
 
-## License
-
-[ISC](LICENSE) © 2025 yashaleo
+[ISC](LICENSE) © 2025 [yashaleo](https://github.com/yashaleo)

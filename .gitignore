@@ -1,7 +1,17 @@
-node_modules
-npm-debug.log
-*.pem
-!mock-cert.pem
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+
+# Env config
 .env
-coverage
-lib
+
+# Test coverage
+coverage/
+
+# Build artifacts (if any)
+lib/
+
+# Misc
+.DS_Store
