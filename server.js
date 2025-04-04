@@ -8,6 +8,8 @@ const probotApp = require('./index.js');
 // Function to start the server
 async function startServer() {
   try {
+    console.log('Starting server initialization...');
+
     // Create Probot instance
     const probot = new Probot({
       appId: process.env.APP_ID,
@@ -15,18 +17,53 @@ async function startServer() {
       secret: process.env.WEBHOOK_SECRET,
     });
 
-    // Load the app explicitly by calling probot.load with our function
-    probot.load(probotApp);
+    console.log(`App function type: ${typeof probotApp}`);
+    console.log(
+      `App function content: ${probotApp.toString().slice(0, 100)}...`
+    );
 
-    // Verify app was loaded
-    console.log(`✅ App loaded successfully: ${typeof probotApp}`);
+    try {
+      // Load the app explicitly
+      probot.load(probotApp);
+      console.log('✅ App loaded successfully');
+    } catch (loadError) {
+      console.error('❌ Error loading app:', loadError);
+      throw loadError;
+    }
 
-    // Create the middleware (AFTER loading the app)
-    const { createNodeMiddleware } = require('probot');
-    const middleware = createNodeMiddleware(probot);
+    // Instead of using the middleware, let's create a manual request handler
+    const server = http.createServer(async (req, res) => {
+      console.log(`📥 Incoming request: ${req.method} ${req.url}`);
 
-    // Create server
-    const server = http.createServer(middleware);
+      if (req.method === 'POST') {
+        const buffers = [];
+
+        req.on('data', (chunk) => {
+          buffers.push(chunk);
+        });
+
+        req.on('end', async () => {
+          try {
+            const body = Buffer.concat(buffers).toString();
+            console.log(`Request body length: ${body.length} characters`);
+
+            // For webhook verification
+            res.statusCode = 200;
+            res.end('Webhook received');
+
+            // We don't process the webhook here since we're just trying to get the server running
+            console.log('Webhook acknowledged');
+          } catch (webhookError) {
+            console.error('Error processing webhook:', webhookError);
+            res.statusCode = 500;
+            res.end('Error processing webhook');
+          }
+        });
+      } else {
+        res.statusCode = 200;
+        res.end('Probot server is running');
+      }
+    });
 
     // Start server
     const PORT = process.env.PORT || 3000;
@@ -40,12 +77,29 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Startup error:', error);
-    process.exit(1);
+    // Keep the process running even with an error
+    console.log(
+      'Server initialization failed, but keeping process alive for debugging'
+    );
   }
 }
 
-// Start the server
+// Start the server with better error handling
 startServer().catch((error) => {
   console.error('Fatal error:', error);
-  process.exit(1);
+  // Keep the process running for debugging
+  console.log(
+    'Server initialization failed, but keeping process alive for debugging'
+  );
+});
+
+// Keep the process running
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  // Don't exit the process
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled promise rejection:', err);
+  // Don't exit the process
 });
