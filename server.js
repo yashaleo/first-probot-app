@@ -31,11 +31,36 @@ async function startServer() {
     probot.load((app) => probotApp(app));
     console.log('✅ App loaded successfully');
 
-    // Create middleware
-    const middleware = createNodeMiddleware(probot);
+    // Create probot middleware
+    const probotMiddleware = createNodeMiddleware(probot);
 
-    // Create server
-    const server = http.createServer(middleware);
+    // Create logging middleware
+    const loggingMiddleware = (req, res, next) => {
+      console.log(`📝 Incoming request: ${req.method} ${req.url}`);
+
+      // Store the original res.end to intercept it
+      const originalEnd = res.end;
+      res.end = function (...args) {
+        console.log(`📤 Response status: ${res.statusCode}`);
+        return originalEnd.apply(res, args);
+      };
+
+      next();
+    };
+
+    // Create server with both middlewares
+    const server = http.createServer((req, res) => {
+      loggingMiddleware(req, res, () => {
+        try {
+          probotMiddleware(req, res);
+        } catch (error) {
+          console.error('❌ Middleware error:', error);
+          res.statusCode = 500;
+          res.end('Internal server error');
+        }
+      });
+    });
+
     const PORT = process.env.PORT || 3000;
 
     // Handle server errors
