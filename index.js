@@ -1,14 +1,17 @@
 /**
- * This is the main entry point for your Probot app
- * @param {import('probot').Probot} app
+ * The core Probot application logic
  */
-function probotApp(app) {
+module.exports = (app) => {
   app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
   app.onAny(async (context) => {
     app.log.info(`📥 Received event: ${context.name}`);
-    app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
+    try {
+      app.log.info(`🔍 Payload: ${JSON.stringify(context.payload, null, 2)}`);
+    } catch (error) {
+      app.log.info(`🔍 Payload is too large to log`);
+    }
   });
 
   // Respond to new issues
@@ -18,6 +21,7 @@ function probotApp(app) {
         body: "Thanks for opening this issue! 🛠️ We'll look into it soon.",
       });
       await context.octokit.issues.createComment(issueComment);
+      app.log.info('✅ Comment added to new issue');
     } catch (error) {
       app.log.error(`Error commenting on issue: ${error.message}`);
     }
@@ -41,7 +45,4 @@ function probotApp(app) {
       app.log.error(`Error assigning reviewers: ${error.message}`);
     }
   });
-}
-
-// Export for CommonJS
-module.exports = probotApp;
+};

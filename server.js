@@ -1,104 +1,42 @@
 const { Probot } = require('probot');
-const { createNodeMiddleware } = require('probot');
-const dotenv = require('dotenv');
 const http = require('http');
-const probotApp = require('./index.js');
+require('dotenv').config();
 
-// Load environment variables
-dotenv.config();
+// Create Probot instance
+const probot = new Probot({
+  appId: process.env.APP_ID,
+  privateKey: (process.env.PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  secret: process.env.WEBHOOK_SECRET,
+});
 
-// Function to start the server
-async function startServer() {
-  try {
-    // Check required environment variables
-    if (
-      !process.env.APP_ID ||
-      !process.env.PRIVATE_KEY ||
-      !process.env.WEBHOOK_SECRET
-    ) {
-      console.error('❌ Missing required environment variables.');
-      process.exit(1);
-    }
+// Load the app
+const app = require('./index.js');
+probot.load(app);
 
-    // Initialize Probot
-    const probot = new Probot({
-      appId: process.env.APP_ID,
-      privateKey: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
-      secret: process.env.WEBHOOK_SECRET,
-    });
+// Create server
+const { createNodeMiddleware } = require('probot');
+const middleware = createNodeMiddleware(probot);
+const server = http.createServer(middleware);
 
-    // Load the app
-    probot.load(probotApp);
-    console.log('✅ App loaded successfully');
+// Start server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ Probot server is running on port ${PORT}`);
+});
 
-    // Create probot middleware
-    const probotMiddleware = createNodeMiddleware(probot);
+// Handle server errors
+server.on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
+});
 
-    // Create logging middleware
-    const loggingMiddleware = (req, res, next) => {
-      console.log(`📝 Incoming request: ${req.method} ${req.url}`);
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
 
-      // Store the original res.end to intercept it
-      const originalEnd = res.end;
-      res.end = function (...args) {
-        console.log(`📤 Response status: ${res.statusCode}`);
-        return originalEnd.apply(res, args);
-      };
-
-      next();
-    };
-
-    // Create server with both middlewares
-    const server = http.createServer((req, res) => {
-      loggingMiddleware(req, res, () => {
-        try {
-          probotMiddleware(req, res);
-        } catch (error) {
-          console.error('❌ Middleware error:', error);
-          res.statusCode = 500;
-          res.end('Internal server error');
-        }
-      });
-    });
-
-    const PORT = process.env.PORT || 3000;
-
-    // Handle server errors
-    server.on('error', (err) => {
-      console.error('❌ Server error:', err);
-    });
-
-    // Start server
-    server.listen(PORT, () => {
-      console.log(`✅ Probot server listening on port ${PORT}`);
-    });
-
-    // Set up local development webhook forwarding if needed
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      process.env.WEBHOOK_PROXY_URL
-    ) {
-      try {
-        const SmeeClient = require('smee-client').SmeeClient;
-        const smee = new SmeeClient({
-          source: process.env.WEBHOOK_PROXY_URL,
-          target: `http://localhost:${PORT}/`,
-          logger: console,
-        });
-        smee.start();
-        console.log('🔄 Smee webhook forwarding started');
-      } catch (error) {
-        console.warn('⚠️ Could not start Smee client:', error.message);
-      }
-    }
-  } catch (error) {
-    console.error('❌ Server error:', error);
-    process.exit(1);
-  }
-}
-
-// Start the server
-startServer().catch((error) => {
-  console.error('❌ Fatal error:', error);
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled promise rejection:', err);
   process.exit(1);
 });
