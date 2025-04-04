@@ -1,9 +1,8 @@
 /**
- * Entry point for your Probot app
- * @param {import('probot').Probot} app
+ * @type {import('probot').ProbotPlugin}
  */
-export default function myApp(app) {
-  app.log.info("✅ GitHub Bot is now running!");
+export const myApp = (app) => {
+  app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
   app.onAny(async (context) => {
@@ -12,7 +11,7 @@ export default function myApp(app) {
   });
 
   // Respond to new issues
-  app.on("issues.opened", async (context) => {
+  app.on('issues.opened', async (context) => {
     const issueComment = context.issue({
       body: "Thanks for opening this issue! 🛠️ We'll look into it soon.",
     });
@@ -20,8 +19,8 @@ export default function myApp(app) {
   });
 
   // Auto-assign reviewers to PRs
-  app.on("pull_request.opened", async (context) => {
-    const config = await context.config("auto_assign.yml");
+  app.on('pull_request.opened', async (context) => {
+    const config = await context.config('auto_assign.yml');
     let reviewers = (config && config.reviewers) || [];
 
     // Filter out the PR author
@@ -31,9 +30,9 @@ export default function myApp(app) {
       await context.octokit.pulls.requestReviewers(
         context.pullRequest({ reviewers })
       );
-      app.log.info(`✅ Assigned reviewers: ${reviewers.join(", ")}`);
+      app.log.info(`✅ Assigned reviewers: ${reviewers.join(', ')}`);
     } else {
-      app.log.warn("⚠️ No eligible reviewers found.");
+      app.log.warn('⚠️ No eligible reviewers found.');
     }
   });
-}
+};
