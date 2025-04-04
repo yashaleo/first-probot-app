@@ -5,14 +5,13 @@
 module.exports = function (app) {
   app.log.info('✅ GitHub Bot is now running!');
 
-  // Log all events
+  // Log all events with detailed information
   app.onAny(async (context) => {
     try {
       app.log.info(`📥 Received event: ${context.name}`);
+      app.log.info(`Event type: ${context.name}, Action: ${context.payload.action}`);
     } catch (error) {
-      app.log.info(
-        `📥 Received event: ${context.name} (error logging payload)`
-      );
+      app.log.info(`📥 Received event: ${context.name} (error logging payload)`);
     }
   });
 
@@ -90,100 +89,85 @@ module.exports = function (app) {
     }
   });
 
-  // Add 'approved' label when a PR is approved
+  // Handle all possible review events
+  app.on(['pull_request_review.submitted', 'pull_request_review'], async (context) => {
+    try {
+      app.log.info(`🔎 Received review event: ${context.name}, action: ${context.payload.action}`);
+      
+      // Check if it's an approval - handle both direct submissions and action='submitted'
+      if (
+        (context.payload.action === 'submitted' && context.payload.review.state === 'approved') ||
+        context.payload.review?.state === 'approved'
+      ) {
+        const pullRequest = context.payload.pull_request;
+        const repo = context.repo();
+        
+        app.log.info(`📝 PR #${pullRequest.number} approved by ${context.payload.review.user.login}`);
+        app.log.info(`Repository: ${repo.owner}/${repo.repo}`);
+        
+        // Try to add the approved label
+        try {
+          app.log.info(`Adding 'approved' label to PR #${pullRequest.number}`);
+          
+          // First try to create the label if it doesn't exist
+          try {
+            await context.octokit.issues.createLabel({
+              ...repo,
+              name: 'approved',
+              color: '0e8a16', // Green color
+              description: 'Pull request has been approved'
+            });
+            app.log.info('Created approved label');
+          } catch (labelError) {
+            app.log.info(`Note: ${labelError.message} (This may be normal if label exists)`);
+          }
+          
+          // Add label to PR
+          await context.octokit.issues.addLabels({
+            ...repo,
+            issue_number: pullRequest.number,
+            labels: ['approved']
+          });
+          
+          app.log.info(`✅ Successfully added 'approved' label to PR #${pullRequest.number}`);
+          
+          // Add a comment
+          await context.octokit.issues.createComment({
+            ...repo,
+            issue_number: pullRequest.number,
+            body: `This pull request has been approved by @${context.payload.review.user.login} and has been labeled as 'approved'. 👍`
+          });
+        } catch (error) {
+          app.log.error(`Error adding label: ${error.message}`);
+          app.log.error(`Error status: ${error.status || 'unknown'}`);
+          
+          // Add a comment about the approval even if labeling failed
+          await context.octokit.issues.createComment({
+            ...repo,
+            issue_number: pullRequest.number,
+            body: `This pull request has been approved by @${context.payload.review.user.login}. 👍 (Note: I couldn't add the 'approved' label due to an error)`
+          });
+        }
+      } else {
+        app.log.info(`Review state is ${context.payload.review?.state || 'unknown'}, not an approval`);
+      }
+    } catch (error) {
+      app.log.error(`Error handling PR review: ${error.message}`);
+      if (error.stack) app.log.error(`Stack trace: ${error.stack}`);
+    }
+  });
+
+  // Also handle 'pull_request_review.submitted' separately
   app.on('pull_request_review.submitted', async (context) => {
     try {
-      // Only process approvals
-      if (context.payload.review.state !== 'approved') {
-        app.log.info(
-          `Review was ${context.payload.review.state}, not an approval. Skipping.`
-        );
-        return;
+      app.log.info(`🔎 Specific review.submitted event received with state: ${context.payload.review.state}`);
+      
+      // Process only if it's an approval
+      if (context.payload.review.state === 'approved') {
+        app.log.info('This is an approval review - processing via dedicated handler');
       }
-
-      const pullRequest = context.payload.pull_request;
-      const repo = context.repo();
-
-      app.log.info(
-        `📝 PR #${pullRequest.number} approved by ${context.payload.review.user.login}`
-      );
-      app.log.info(`Repository: ${repo.owner}/${repo.repo}`);
-
-      // First try to get all existing labels to check if 'approved' exists
-      app.log.info(
-        `Checking for existing labels in ${repo.owner}/${repo.repo}`
-      );
-      const existingLabels = await context.octokit.issues.listLabelsForRepo({
-        ...repo,
-        per_page: 100,
-      });
-
-      app.log.info(
-        `Found ${existingLabels.data.length} labels in the repository`
-      );
-      const existingLabelNames = existingLabels.data.map((label) => label.name);
-      app.log.info(`Existing labels: ${existingLabelNames.join(', ')}`);
-
-      // Check if 'approved' label exists
-      if (!existingLabelNames.includes('approved')) {
-        // Create the 'approved' label
-        app.log.info('Creating "approved" label');
-        try {
-          await context.octokit.issues.createLabel({
-            ...repo,
-            name: 'approved',
-            color: '0e8a16', // Green color
-            description: 'Pull request has been approved',
-          });
-          app.log.info('✅ Created "approved" label successfully');
-        } catch (labelError) {
-          app.log.error(
-            `Error creating "approved" label: ${labelError.message}`
-          );
-          if (labelError.status === 422) {
-            app.log.info(
-              'Label might already exist with a different case. Trying to fetch all labels again...'
-            );
-          }
-        }
-      }
-
-      // Add the label to the PR
-      app.log.info(
-        `Attempting to add "approved" label to PR #${pullRequest.number}`
-      );
-      try {
-        await context.octokit.issues.addLabels({
-          ...repo,
-          issue_number: pullRequest.number,
-          labels: ['approved'],
-        });
-        app.log.info(`✅ Added 'approved' label to PR #${pullRequest.number}`);
-      } catch (addLabelError) {
-        app.log.error(`Failed to add label: ${addLabelError.message}`);
-        app.log.error(`Error status: ${addLabelError.status}`);
-
-        // Add a comment about the label issue
-        await context.octokit.issues.createComment({
-          ...repo,
-          issue_number: pullRequest.number,
-          body: `This pull request has been approved by @${context.payload.review.user.login}, but I couldn't add the 'approved' label due to an error. Please check the bot's permissions or add the label manually.`,
-        });
-        return;
-      }
-
-      // Add a comment about the approval and label
-      await context.octokit.issues.createComment({
-        ...repo,
-        issue_number: pullRequest.number,
-        body: `This pull request has been approved by @${context.payload.review.user.login} and has been labeled as 'approved'. 👍`,
-      });
     } catch (error) {
-      app.log.error(`Error handling PR approval: ${error.message}`);
-      if (error.status) app.log.error(`Status code: ${error.status}`);
-      if (error.response && error.response.data) {
-        app.log.error(`Response data: ${JSON.stringify(error.response.data)}`);
-      }
+      app.log.error(`Error in specific review.submitted handler: ${error.message}`);
     }
   });
 };
