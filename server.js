@@ -2,6 +2,7 @@ import { Probot } from 'probot';
 import { myApp } from './index.js';
 import * as dotenv from 'dotenv';
 import http from 'http';
+import handler from 'smee-client'; // ✅ Needed for Smee proxy webhook forwarding
 
 dotenv.config();
 
@@ -27,16 +28,21 @@ console.dir(myApp);
 // Load your app
 await probot.load(myApp);
 
-// For Probot v13: You don’t use `createNodeMiddleware` anymore
-// Instead, just handle HTTP requests manually (if needed)
-const server = http.createServer(async (req, res) => {
-  if (req.url === '/') {
-    res.writeHead(200);
-    res.end('✅ Probot app is running');
-  }
-});
-
 const PORT = process.env.PORT || 3000;
+
+// 🧪 Smee webhook proxy setup for dev/Heroku
+if (process.env.WEBHOOK_PROXY_URL) {
+  const smee = new handler({
+    source: process.env.WEBHOOK_PROXY_URL,
+    target: `http://localhost:${PORT}/`,
+    logger: console,
+  });
+  smee.start();
+}
+
+// For Probot v13: You can forward requests to probot using built-in middleware
+const server = http.createServer(probot.webhooks.middleware);
+
 server.listen(PORT, () => {
   console.log(`✅ Probot server listening on http://localhost:${PORT}`);
 });
