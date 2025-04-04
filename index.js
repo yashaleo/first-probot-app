@@ -1,7 +1,7 @@
 /**
  * @type {import('probot').ProbotPlugin}
  */
-export default function myApp(app) {
+export default function (app) {
   app.log.info('✅ GitHub Bot is now running!');
 
   // Log all events
@@ -23,7 +23,6 @@ export default function myApp(app) {
     const config = await context.config('auto_assign.yml');
     let reviewers = (config && config.reviewers) || [];
 
-    // Filter out the PR author
     reviewers = reviewers.filter((r) => r !== context.payload.sender.login);
 
     if (reviewers.length > 0) {

@@ -8,17 +8,11 @@ const { SmeeClient } = pkg;
 
 dotenv.config();
 
-// Validate required environment variables
-if (
-  !process.env.APP_ID ||
-  !process.env.PRIVATE_KEY ||
-  !process.env.WEBHOOK_SECRET
-) {
+if (!process.env.APP_ID || !process.env.PRIVATE_KEY || !process.env.WEBHOOK_SECRET) {
   console.error('❌ Missing required environment variables.');
   process.exit(1);
 }
 
-// Create a Probot instance
 const probot = new Probot({
   appId: process.env.APP_ID,
   privateKey: process.env.PRIVATE_KEY.replace(/\\n/g, '\n'),
@@ -26,12 +20,12 @@ const probot = new Probot({
 });
 
 console.log('🧪 Type of myApp before load:', typeof myApp);
-console.dir(myApp);
+console.log('🧪 Function string:', myApp.toString().slice(0, 100));
 
-// Load the Probot app
+// Load your app correctly (default export = a function)
 await probot.load(myApp);
 
-// Optionally connect Smee (for webhook proxying)
+// Start Smee for local webhook forwarding
 if (process.env.WEBHOOK_PROXY_URL) {
   const smee = new SmeeClient({
     source: process.env.WEBHOOK_PROXY_URL,
@@ -41,7 +35,6 @@ if (process.env.WEBHOOK_PROXY_URL) {
   smee.start();
 }
 
-// Start HTTP server
 const middleware = createNodeMiddleware(probot);
 const server = http.createServer(middleware);
 
